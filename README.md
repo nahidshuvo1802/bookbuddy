@@ -1,105 +1,116 @@
 # BookBuddy 📚
 
-A clean Flutter app for discovering books using the Google Books API. Built with Riverpod, Hive, and MVC architecture.
+A clean, modular Flutter application for discovering and favoriting books using the Google Books API. Designed with a robust separation of concerns using **Riverpod (State Management)**, **Hive (Local Database)**, and **Clean MVC Architecture**.
 
-## Features
+---
 
-- Search books by title or author
-- View book details (title, authors, description, publish date)
-- Save favorites locally with Hive
-- Infinite scroll pagination
-- Pull to refresh
-- App flavors (dev / prod)
-- Graceful error handling with retry
+## Tech Stack & Architecture
 
-## Tech Stack
+- **State Management**: `flutter_riverpod` (StateNotifier pattern for predictable state flow)
+- **Networking**: `http` with automated backoff retry logic (handles HTTP 429 rate limits)
+- **Local Storage**: `hive_flutter` for persistent favorites storage without heavy code gen dependencies
+- **Image Caching**: `cached_network_image` to handle cover image optimizations and connection issues
 
-| Concern | Library |
-|---|---|
-| State Management | flutter_riverpod |
-| HTTP | http |
-| Local Storage | hive_flutter |
-| Image Caching | cached_network_image |
-
-## Project Structure (MVC)
-
-```
-lib/
-├── main_dev.dart              # Dev flavor entry point
-├── main_prod.dart             # Prod flavor entry point
-├── app.dart                   # MaterialApp root
-├── config/
-│   └── app_config.dart        # Flavor config (base URL, app name)
-├── models/
-│   └── book.dart              # Book model + Hive adapter
-├── controllers/
-│   ├── book_controller.dart   # Book list state (Riverpod)
-│   └── favorite_controller.dart # Favorites state (Hive + Riverpod)
-├── views/
-│   ├── home_view.dart         # Book list screen
-│   ├── book_detail_view.dart  # Book detail screen
-│   └── widgets/
-│       ├── book_card.dart     # Book list item
-│       └── error_widget.dart  # Error/empty state
-└── services/
-    ├── api_client.dart        # HTTP wrapper with error handling
-    └── api_url.dart           # API endpoint builder
-```
+---
 
 ## Setup Instructions
 
-### Prerequisites
-- Flutter SDK (3.10+)
-- Android Studio / Xcode
+### 1. Prerequisites
+- **Flutter SDK**: Ensure you have Flutter installed (`>= 3.10.0`).
+- **Android/iOS SDK**: Set up Android Studio or Xcode to compile.
 
-### Install dependencies
+### 2. Environment Variables (`.env`)
+The app uses environment variables to authenticate API requests securely. Because the `.env` file contains sensitive API keys, it is ignored by Git.
+
+**You must create a `.env` file in the root directory of the project** with the following variables:
+
+```env
+API_KEY_DEV=your_dev_google_books_api_key
+API_KEY_PROD=your_prod_google_books_api_key
+```
+
+> **Note**: You can get an API key from the [Google Cloud Console](https://console.cloud.google.com/) by enabling the *Books API*.
+
+### 3. Install Dependencies
+Run the following command in the root folder to download the required packages:
 
 ```bash
 flutter pub get
 ```
 
-### Run the app
+---
 
-**Dev flavor:**
+## How to Run the Project
+
+Launch the application in debug mode on your connected device or emulator.
+
+### Development Flavor
 ```bash
 flutter run --flavor dev -t lib/main_dev.dart
 ```
 
-**Prod flavor:**
+### Production Flavor
 ```bash
 flutter run --flavor prod -t lib/main_prod.dart
 ```
 
-## Flavor Setup
+---
 
-The app uses **two flavors** — `dev` and `prod` — each with a different base URL and app name.
+## How to Build the App
 
-### How it works:
+Compile a release build (APK / Bundle / IPA) for distribution.
 
-1. **Dart side**: Two entry points (`main_dev.dart`, `main_prod.dart`) each call `AppConfig.init()` with the flavor-specific `baseUrl` and `appName`.
+### Build Android APK
+- **Development Release**:
+  ```bash
+  flutter build apk --flavor dev -t lib/main_dev.dart
+  ```
+- **Production Release**:
+  ```bash
+  flutter build apk --flavor prod -t lib/main_prod.dart
+  ```
 
-2. **Android side**: `build.gradle.kts` defines `productFlavors` with different `applicationIdSuffix` and `resValue` for each flavor.
+### Build iOS Release
+- **Development Release**:
+  ```bash
+  flutter build ipa --flavor dev -t lib/main_dev.dart
+  ```
+- **Production Release**:
+  ```bash
+  flutter build ipa --flavor prod -t lib/main_prod.dart
+  ```
 
-3. **Usage**: Run with `--flavor dev -t lib/main_dev.dart` or `--flavor prod -t lib/main_prod.dart`.
+---
 
-| Flavor | App Name | Base URL | App ID Suffix |
+## Flavor Setup Explanation
+
+The app leverages Flutter/Gradle flavor dimensions to decouple development and production configurations.
+
+### Key Architecture Components:
+1. **AppInitializer (`lib/config/app_initializer.dart`)**:
+   Consolidates boot logic (Hive registry, `.env` parsing, bindings) and binds environment-specific API keys dynamically.
+2. **Flavor Entry Points**:
+   - `lib/main_dev.dart` runs the dev config and binds `API_KEY_DEV`.
+   - `lib/main_prod.dart` runs the prod config and binds `API_KEY_PROD`.
+3. **Android Configuration (`android/app/build.gradle.kts`)**:
+   Defines the flavor dimensions and configuration overrides:
+   - **`dev`**: App name is configured as **BookBuddy Dev** with application ID suffix `.dev`.
+   - **`prod`**: App name is configured as **BookBuddy** with no suffix.
+
+| Flavor | Application ID Suffix | Display Name | Config Key Used |
 |---|---|---|---|
-| dev | BookBuddy Dev | `https://www.googleapis.com/books/v1` | `.dev` |
-| prod | BookBuddy | `https://www.googleapis.com/books/v1` | (none) |
+| **dev** | `.dev` | BookBuddy Dev | `API_KEY_DEV` |
+| **prod** | (none) | BookBuddy | `API_KEY_PROD` |
 
-> In a real project, the base URLs would differ (e.g., staging vs production server).
+---
 
-## State Management
+## State Management Approach
 
-**Riverpod** with `StateNotifier` pattern:
+State management is handled via **Riverpod** with a predictable unidirectional data flow matching clean MVC structures:
 
-- `BookController` — manages book list, pagination, search, loading, and error states
-- `FavoriteController` — manages favorites using Hive for persistence
-
-Both expose their state through `StateNotifierProvider` and are consumed by views using `ConsumerWidget` / `ConsumerStatefulWidget`.
-
-## API
-
-Uses the [Google Books API](https://developers.google.com/books/docs/v1/using) — no API key required for basic volume searches.
-
-**Endpoint:** `GET /volumes?q={query}&startIndex={index}&maxResults=20`
+- **State Layer (`BookState`)**:
+  Represents a single immutable snapshot of the books screen state (books list, paging indices, query string, loading states, and error strings).
+- **Controller Layer (`BookController`)**:
+  Manages request queuing, state changes, search debouncing, and pagination checks. It features request guards to prevent duplicate concurrent API requests on rapid scroll.
+- **Favorites Layer (`FavoriteController`)**:
+  Listens to Hive box updates and exposes favorites globally. When a book is favorited, state change notifications trigger atomic UI updates.
